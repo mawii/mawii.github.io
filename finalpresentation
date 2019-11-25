@@ -1,0 +1,115 @@
+---
+title: "Developing Data Products Course Project"
+author: "Michael Witherspoon II"
+date: "11/25/2019"
+output: ioslides_presentation
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+There are several factors that affect the temperature. We can use these factors to predict what the temperature would be. Some predictors are better than others. Here, we will use Ozone Concentration and Wind Speed to try and predict the temperature:
+
+- **Ozone**
+- Solar Radiation
+- **Wind**
+- Month of the year
+- Day of the month
+
+## UI function
+
+```{r ui, echo=TRUE}
+ui <- shinyUI(fluidPage(
+    # titlePanel("Predict Temperature"),
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput("sliderOzone",
+                        "What is the Ozone Concentration (ppb)?",
+                        min = 1,
+                        max = 170,
+                        value = 100),
+            sliderInput("sliderWind",
+                        "What is the Wind Speed (mph)?",
+                        min = 1,
+                        max = 22,
+                        value = 14),
+            checkboxInput("showModel1", "Model 1", value = T),
+            checkboxInput("showModel2", "Model 2", value = T),
+            submitButton("Submit") # delayed reactivity
+        ),
+        
+        
+        mainPanel(
+            plotOutput("plot1"),
+            h6("Predicted Temperature from Model 1:"),
+            textOutput("pred1"),
+            h6("Predicted Temperature from Model 2:"),
+            textOutput("pred2")
+        )
+    )
+))
+```
+
+## Server function
+
+```{r server, echo=TRUE}
+server <- shinyServer(function(input, output) {
+    model1 <- lm(Temp ~ Ozone, data = airquality)
+    model2 <- lm(Temp ~ Wind, data = airquality)
+    
+    model1pred <- reactive({
+        OzoneInput <- input$sliderOzone
+        predict(model1, newdata = data.frame(Ozone = OzoneInput))
+    })
+    
+    model2pred <- reactive({
+        WindInput <- input$sliderWind
+        predict(model2, newdata = data.frame(Wind = WindInput))
+    })
+    
+    output$plot1 <- renderPlot({
+        OzoneInput <- input$sliderOzone
+        WindInput <- input$sliderWind
+        
+        par(mfrow = c(1, 2))
+        # Model 1
+        if(input$showModel1) {
+            plot(airquality$Ozone, airquality$Temp, xlab = "Ozone Concentration (ppb)",
+                 ylab = "Temperature (degrees F)", bty = "n", pch = 16,
+                 xlim = c(1, 170), ylim = c(40, 110))
+            abline(model1, col = "red", lwd = 2)
+            points(OzoneInput, model1pred(), col = "red", pch = 16, cex = 2)
+            legend(5, 50, "Model 1 Prediction", pch = 16,
+                   col = "red", bty = "n", cex = 1.2)
+        }
+        #Model 2
+        if(input$showModel2) {
+            plot(airquality$Wind, airquality$Temp, xlab = "Wind Speed (mph)",
+                 ylab = "Temperature (degrees F)", bty = "n", pch = 16,
+                 xlim = c(1, 22), ylim = c(40, 110))
+            abline(model2, col = "blue", lwd = 2)
+            points(WindInput, model2pred(), col = "blue", pch = 16, cex = 2)
+            legend(3, 50, "Model 2 Prediction", pch = 16,
+                   col = "blue", bty = "n", cex = 1.2)
+        }
+        
+    })
+    
+    output$pred1 <- renderText({
+        model1pred()
+    })
+    
+    output$pred2 <- renderText({
+        model2pred()
+    })
+})
+```
+
+## Predict Temperature
+```{r plot}
+shinyApp(ui, server)
+```
